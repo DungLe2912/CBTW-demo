@@ -1,0 +1,30 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ProductModule } from './product/product.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot(),
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DATABASE_HOST,
+      port: parseInt(process.env.DATABASE_PORT ?? '5432'),
+      username: process.env.DATABASE_USERNAME,
+      password: process.env.DATABASE_PASSWORD,
+      database: process.env.DATABASE_NAME,
+      entities: [__dirname + process.env.TYPEORM_ENTITIES],
+      migrations: process.env.TYPEORM_MIGRATIONS
+        ? [process.env.TYPEORM_MIGRATIONS]
+        : [],
+      logging: process.env.TYPEORM_LOGGING === 'true',
+      synchronize: true,
+      migrationsRun: process.env.TYPEORM_MIGRATION_RUN === 'true',
+      migrationsTableName: 'migrations',
+    }),
+    ProductModule,
+  ],
+  controllers: [],
+  providers: [],
+})
+export class AppModule {}

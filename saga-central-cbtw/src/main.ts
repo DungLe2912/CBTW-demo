@@ -40,7 +40,12 @@ async function bootstrap() {
             queue: 'sec-queue',
             queueOptions: {
               durable: true,
+              arguments: {
+                'x-dead-letter-exchange': 'dlx',
+                'x-dead-letter-routing-key': 'sec-queue.dlq',
+              },
             },
+            noAck: false,
             connectionOptions: {
               timeout: 10000,
             },

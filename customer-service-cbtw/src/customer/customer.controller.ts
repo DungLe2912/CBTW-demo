@@ -1,8 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import {
+  Ctx,
   EventPattern,
   MessagePattern,
   Payload,
+  RmqContext,
   Transport,
 } from '@nestjs/microservices';
 import { CreateCustomerDto } from './customer.interface';
@@ -35,8 +41,19 @@ export class CustomerController {
       customerId: number;
       totalAmount: number;
     },
+    @Ctx() context: RmqContext,
   ): Promise<boolean> {
-    return await this.customerService.processPayment(payload);
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
+
+    try {
+      const result = await this.customerService.processPayment(payload);
+      channel.ack(originalMsg);
+      return result;
+    } catch (error) {
+      this.retryOrDlq(channel, originalMsg);
+      return false;
+    }
   }
 
   @EventPattern({ cmd: 'processPaymentRequested' }, Transport.RMQ)
@@ -49,8 +66,17 @@ export class CustomerController {
       products: unknown;
       totalAmount: number;
     },
+    @Ctx() context: RmqContext,
   ): Promise<void> {
-    await this.customerService.handleProcessPaymentRequested(payload);
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
+
+    try {
+      await this.customerService.handleProcessPaymentRequested(payload);
+      channel.ack(originalMsg);
+    } catch (error) {
+      this.retryOrDlq(channel, originalMsg);
+    }
   }
 
   @EventPattern({ cmd: 'refundPayment' }, Transport.RMQ)
@@ -61,7 +87,44 @@ export class CustomerController {
       customerId: number;
       totalAmount: number;
     },
+    @Ctx() context: RmqContext,
   ): Promise<boolean> {
-    return await this.customerService.compensateProcessPayment(payload);
+    const channel = context.getChannelRef();
+    const originalMsg = context.getMessage();
+
+    try {
+      const result =
+        await this.customerService.compensateProcessPayment(payload);
+      channel.ack(originalMsg);
+      return result;
+    } catch (error) {
+      this.retryOrDlq(channel, originalMsg);
+      return false;
+    }
+  }
+
+  private retryOrDlq(channel: any, originalMsg: any): void {
+    const headers = (originalMsg?.properties?.headers ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const rawRetryCount = headers['x-retry-count'];
+    const retryCount = Number(rawRetryCount ?? 0);
+
+    if (!Number.isFinite(retryCount) || retryCount >= 5) {
+      channel.nack(originalMsg, false, false);
+      return;
+    }
+
+    const nextHeaders = {
+      ...headers,
+      'x-retry-count': retryCount + 1,
+    };
+
+    channel.sendToQueue(originalMsg.fields.routingKey, originalMsg.content, {
+      ...originalMsg.properties,
+      headers: nextHeaders,
+    });
+    channel.ack(originalMsg);
   }
 }

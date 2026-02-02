@@ -36,7 +36,12 @@ async function bootstrap() {
           queue: 'product-queue',
           queueOptions: {
             durable: true,
+            arguments: {
+              'x-dead-letter-exchange': 'dlx',
+              'x-dead-letter-routing-key': 'product-queue.dlq',
+            },
           },
+          noAck: false,
         },
       });
 

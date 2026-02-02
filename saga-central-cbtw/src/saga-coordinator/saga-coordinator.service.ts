@@ -1,31 +1,18 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
+import { Repository } from 'typeorm';
 import {
   ICreateOrderEvent,
   IProcessPaymentEvent,
   IUpdateInventoryEvent,
   PlaceOrderDto,
 } from './saga.interface';
+import { OrderRequestEntity } from '../entities/order-request.entity';
 
 @Injectable()
 export class SagaCoordinatorService {
-  private readonly acceptedRequests = new Map<
-    string,
-    {
-      requestId: string;
-      status:
-        | 'processing'
-        | 'order_created'
-        | 'customer_validated'
-        | 'customer_invalidated'
-        | 'stock_reserved'
-        | 'stock_not_available'
-        | 'order_confirmed'
-        | 'order_cancelled';
-      orderId?: number;
-    }
-  >();
   private readonly processedEvents = new Set<string>();
 
   constructor(
@@ -33,6 +20,8 @@ export class SagaCoordinatorService {
     @Inject('customerService') private readonly customerService: ClientProxy,
     @Inject('productService') private readonly productService: ClientProxy,
     @Inject('sagaService') private readonly sagaService: ClientProxy,
+    @InjectRepository(OrderRequestEntity)
+    private readonly orderRequestRepository: Repository<OrderRequestEntity>,
   ) {
     void this.orderService.connect().catch((error) => Logger.debug(error));
     void this.customerService.connect().catch((error) => Logger.debug(error));
@@ -40,11 +29,18 @@ export class SagaCoordinatorService {
     void this.sagaService.connect().catch((error) => Logger.debug(error));
   }
 
-  handleCreateOrder(placeOrderDto: PlaceOrderDto) {
+  async handleCreateOrder(placeOrderDto: PlaceOrderDto) {
     const requestId = placeOrderDto.requestId ?? randomUUID();
-    const existing = this.acceptedRequests.get(requestId);
-    if (existing) {
-      return existing;
+    const existingDb = await this.orderRequestRepository.findOne({
+      where: { requestId },
+    });
+    if (existingDb) {
+      const response = {
+        requestId,
+        status: existingDb.status,
+        orderId: existingDb.orderId ?? undefined,
+      };
+      return response;
     }
 
     try {
@@ -56,7 +52,10 @@ export class SagaCoordinatorService {
       this.orderService.emit({ cmd: 'orderCreateRequested' }, payload);
 
       const response = { requestId, status: 'processing' as const };
-      this.acceptedRequests.set(requestId, response);
+      await this.orderRequestRepository.save({
+        requestId,
+        status: 'processing',
+      });
 
       return response;
     } catch (error) {
@@ -65,27 +64,34 @@ export class SagaCoordinatorService {
     }
   }
 
-  getRequestStatus(requestId: string) {
-    return (
-      this.acceptedRequests.get(requestId) ?? {
-        requestId,
-        status: 'processing' as const,
-      }
-    );
+  async getRequestStatus(requestId: string) {
+    const existingDb = await this.orderRequestRepository.findOne({
+      where: { requestId },
+    });
+    if (!existingDb) {
+      return { requestId, status: 'processing' as const };
+    }
+
+    const response = {
+      requestId,
+      status: existingDb.status,
+      orderId: existingDb.orderId ?? undefined,
+    };
+    return response;
   }
 
-  processOrderCreated({
+  async processOrderCreated({
     requestId,
     customerId,
     orderId,
     products,
     totalAmount,
-  }: ICreateOrderEvent): void {
+  }: ICreateOrderEvent): Promise<void> {
     if (!this.markEventOnce('orderCreated', requestId ?? String(orderId))) {
       return;
     }
 
-    this.updateRequestStatus(requestId, 'order_created', orderId);
+    await this.updateRequestStatus(requestId, 'order_created', orderId);
 
     try {
       this.customerService.emit(
@@ -104,20 +110,20 @@ export class SagaCoordinatorService {
     }
   }
 
-  processCustomerValidated({
+  async processCustomerValidated({
     requestId,
     orderId,
     customerId,
     products,
     totalAmount,
-  }: IProcessPaymentEvent): void {
+  }: IProcessPaymentEvent): Promise<void> {
     if (
       !this.markEventOnce('customerValidated', requestId ?? String(orderId))
     ) {
       return;
     }
 
-    this.updateRequestStatus(requestId, 'customer_validated', orderId);
+    await this.updateRequestStatus(requestId, 'customer_validated', orderId);
 
     try {
       this.productService.emit(
@@ -136,42 +142,48 @@ export class SagaCoordinatorService {
     }
   }
 
-  processCustomerInvalidated(orderId: number, requestId?: string): void {
+  async processCustomerInvalidated(
+    orderId: number,
+    requestId?: string,
+  ): Promise<void> {
     if (
       !this.markEventOnce('customerInvalidated', requestId ?? String(orderId))
     ) {
       return;
     }
 
-    this.updateRequestStatus(requestId, 'customer_invalidated', orderId);
+    await this.updateRequestStatus(requestId, 'customer_invalidated', orderId);
     Logger.verbose('processCustomerInvalidated');
     this.orderService.emit({ cmd: 'orderCancelled' }, { orderId });
-    this.updateRequestStatus(requestId, 'order_cancelled', orderId);
+    await this.updateRequestStatus(requestId, 'order_cancelled', orderId);
   }
 
-  processStockReserved({ requestId, orderId }: IUpdateInventoryEvent): void {
+  async processStockReserved({
+    requestId,
+    orderId,
+  }: IUpdateInventoryEvent): Promise<void> {
     if (!this.markEventOnce('stockReserved', requestId ?? String(orderId))) {
       return;
     }
 
-    this.updateRequestStatus(requestId, 'stock_reserved', orderId);
+    await this.updateRequestStatus(requestId, 'stock_reserved', orderId);
     this.orderService.emit({ cmd: 'orderConfirmed' }, { orderId });
-    this.updateRequestStatus(requestId, 'order_confirmed', orderId);
+    await this.updateRequestStatus(requestId, 'order_confirmed', orderId);
   }
 
-  processStockNotAvailable({
+  async processStockNotAvailable({
     requestId,
     orderId,
     customerId,
     totalAmount,
-  }: IUpdateInventoryEvent): void {
+  }: IUpdateInventoryEvent): Promise<void> {
     if (
       !this.markEventOnce('stockNotAvailable', requestId ?? String(orderId))
     ) {
       return;
     }
     console.log('processStockNotAvailable called');
-    this.updateRequestStatus(requestId, 'stock_not_available', orderId);
+    await this.updateRequestStatus(requestId, 'stock_not_available', orderId);
     this.customerService.emit(
       { cmd: 'refundPayment' },
       {
@@ -183,7 +195,7 @@ export class SagaCoordinatorService {
     console.log('Refund payment emitted');
 
     this.orderService.emit({ cmd: 'orderCancelled' }, { orderId });
-    this.updateRequestStatus(requestId, 'order_cancelled', orderId);
+    await this.updateRequestStatus(requestId, 'order_cancelled', orderId);
   }
 
   private markEventOnce(event: string, key: string): boolean {
@@ -195,7 +207,7 @@ export class SagaCoordinatorService {
     return true;
   }
 
-  private updateRequestStatus(
+  private async updateRequestStatus(
     requestId: string | undefined,
     status:
       | 'processing'
@@ -212,15 +224,12 @@ export class SagaCoordinatorService {
       return;
     }
 
-    const current = this.acceptedRequests.get(requestId) ?? {
-      requestId,
-      status: 'processing' as const,
-    };
-
-    this.acceptedRequests.set(requestId, {
-      ...current,
-      status,
-      orderId: orderId ?? current.orderId,
-    });
+    await this.orderRequestRepository.update(
+      { requestId },
+      {
+        status,
+        orderId: orderId ?? undefined,
+      },
+    );
   }
 }

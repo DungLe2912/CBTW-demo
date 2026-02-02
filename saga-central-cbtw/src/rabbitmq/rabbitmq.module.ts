@@ -13,6 +13,10 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
             queue: 'order-queue',
             queueOptions: {
               durable: true,
+              arguments: {
+                'x-dead-letter-exchange': 'dlx',
+                'x-dead-letter-routing-key': 'order-queue.dlq',
+              },
             },
           },
         }),
@@ -26,6 +30,10 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
             queue: 'customer-queue',
             queueOptions: {
               durable: true,
+              arguments: {
+                'x-dead-letter-exchange': 'dlx',
+                'x-dead-letter-routing-key': 'customer-queue.dlq',
+              },
             },
           },
         }),
@@ -39,6 +47,10 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
             queue: 'product-queue',
             queueOptions: {
               durable: true,
+              arguments: {
+                'x-dead-letter-exchange': 'dlx',
+                'x-dead-letter-routing-key': 'product-queue.dlq',
+              },
             },
           },
         }),
@@ -52,6 +64,10 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
             queue: 'sec-queue',
             queueOptions: {
               durable: true,
+              arguments: {
+                'x-dead-letter-exchange': 'dlx',
+                'x-dead-letter-routing-key': 'sec-queue.dlq',
+              },
             },
           },
         }),

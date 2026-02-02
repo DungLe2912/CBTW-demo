@@ -15,6 +15,17 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
           },
         },
       },
+      {
+        name: 'sagaService',
+        transport: Transport.RMQ,
+        options: {
+          urls: ['amqp://admin:admin123@localhost:5672'],
+          queue: 'sec-queue',
+          queueOptions: {
+            durable: true,
+          },
+        },
+      },
     ]),
   ],
   exports: [ClientsModule],

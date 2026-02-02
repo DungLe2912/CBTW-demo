@@ -18,12 +18,12 @@ export class ConfirmOrderCommandHandler implements ICommandHandler<ConfirmOrderC
       where: { id: orderId },
     });
     if (!order) {
-      Logger.error(`Order is not exist with orderId: ${orderId}`);
+      Logger.debug(`Order is not exist with orderId: ${orderId}`);
       return false;
     }
 
     if (order.status !== OrderStatus.Pending) {
-      Logger.error(
+      Logger.debug(
         `Order cannot confirm because current status is ${order.status}`,
       );
       return false;

@@ -23,11 +23,11 @@ export class CompensateProcessPaymentCommandHandler implements ICommandHandler<C
     });
 
     if (!customer) {
-      Logger.error(`Customer not found for id: ${customerId}`);
+      Logger.debug(`Customer not found for id: ${customerId}`);
       return false;
     }
 
-    Logger.error('Start compensation process payment');
+    Logger.debug('Start compensation process payment');
     return !!(await this.customerRepository.save({
       id: customer.id,
       balance: customer.balance + totalAmount,

@@ -7,7 +7,7 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import { MessagePattern, Transport } from '@nestjs/microservices';
+import { EventPattern, MessagePattern, Transport } from '@nestjs/microservices';
 import { ProductEntity } from '../entities';
 import { OrderItemDto } from './product.interface';
 import { ProductService } from './product.service';
@@ -47,14 +47,29 @@ export class ProductController {
   }
 
   @MessagePattern({ cmd: 'reserveStock' }, Transport.RMQ)
-  async reserveStock(payload: { products: OrderItemDto[] }): Promise<boolean> {
+  async reserveStock(payload: {
+    requestId?: string;
+    products: OrderItemDto[];
+  }): Promise<boolean> {
     return await this.productService.reserveStock(payload);
   }
 
   @MessagePattern({ cmd: 'updateInventory' }, Transport.RMQ)
   async updateInventory(payload: {
+    requestId?: string;
     products: OrderItemDto[];
   }): Promise<boolean> {
     return await this.productService.updateInventory(payload);
+  }
+
+  @EventPattern({ cmd: 'updateInventoryRequested' }, Transport.RMQ)
+  async handleUpdateInventoryRequested(payload: {
+    requestId?: string;
+    orderId: number;
+    customerId: number;
+    products: OrderItemDto[];
+    totalAmount: number;
+  }): Promise<void> {
+    await this.productService.handleUpdateInventoryRequested(payload);
   }
 }

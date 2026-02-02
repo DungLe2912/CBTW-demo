@@ -1,6 +1,6 @@
 // saga-coordinator.controller.ts
 
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { EventPattern, Payload, Transport } from '@nestjs/microservices';
 import { SagaCoordinatorService } from './saga-coordinator.service';
 import type {
@@ -17,34 +17,37 @@ export class SagaCoordinatorController {
   ) {}
 
   @Post('/orders')
-  async createOrder(@Body() createOrderDto: PlaceOrderDto) {
-    return await this.sagaCoordinatorService.handleCreateOrder(createOrderDto);
+  @HttpCode(201)
+  createOrder(@Body() createOrderDto: PlaceOrderDto) {
+    return this.sagaCoordinatorService.handleCreateOrder(createOrderDto);
+  }
+
+  @Get('/orders/:requestId')
+  getOrderRequestStatus(@Param('requestId') requestId: string) {
+    return this.sagaCoordinatorService.getRequestStatus(requestId);
   }
 
   @EventPattern({ cmd: 'orderCreated' }, Transport.RMQ)
-  async handleOrderCreated(
-    @Payload() payload: ICreateOrderEvent,
-  ): Promise<void> {
-    await this.sagaCoordinatorService.processOrderCreated(payload);
+  handleOrderCreated(@Payload() payload: ICreateOrderEvent): void {
+    this.sagaCoordinatorService.processOrderCreated(payload);
   }
 
   @EventPattern({ cmd: 'customerValidated' }, Transport.RMQ)
-  async handleCustomerValidated(
-    @Payload() payload: IProcessPaymentEvent,
-  ): Promise<void> {
-    await this.sagaCoordinatorService.processCustomerValidated(payload);
+  handleCustomerValidated(@Payload() payload: IProcessPaymentEvent): void {
+    this.sagaCoordinatorService.processCustomerValidated(payload);
   }
 
   @EventPattern({ cmd: 'customerInvalidated' }, Transport.RMQ)
   handleCustomerInvalidated(@Payload() payload: IProcessPaymentEvent): void {
-    this.sagaCoordinatorService.processCustomerInvalidated(payload.orderId);
+    this.sagaCoordinatorService.processCustomerInvalidated(
+      payload.orderId,
+      payload.requestId,
+    );
   }
 
   @EventPattern({ cmd: 'stockReserved' }, Transport.RMQ)
-  async handleStockReserved(
-    @Payload() payload: IUpdateInventoryEvent,
-  ): Promise<void> {
-    await this.sagaCoordinatorService.processStockReserved(payload);
+  handleStockReserved(@Payload() payload: IUpdateInventoryEvent): void {
+    this.sagaCoordinatorService.processStockReserved(payload);
   }
 
   @EventPattern({ cmd: 'stockNotAvailable' }, Transport.RMQ)

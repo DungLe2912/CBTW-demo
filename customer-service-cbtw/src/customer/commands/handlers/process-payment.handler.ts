@@ -20,11 +20,11 @@ export class ProcessPaymentCommandHandler implements ICommandHandler<ProcessPaym
       where: { id: customerId },
     });
     if (!customer) {
-      Logger.error('Customer not found');
+      Logger.debug('Customer not found');
       return false;
     }
     if (customer.balance < totalAmount) {
-      Logger.error('Cannot process payment');
+      Logger.debug('Cannot process payment');
       return false;
     }
 

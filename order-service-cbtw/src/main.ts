@@ -48,11 +48,11 @@ async function bootstrap() {
     }
   } catch (error) {
     // Handle any errors that occurred during initialization
-    Logger.error('Error during bootstrap:', error);
+    Logger.debug('Error during bootstrap:', error);
   }
 }
 
 bootstrap().catch((error) => {
   // Handle any errors that occurred during bootstrap
-  Logger.error('Error during bootstrap:', error);
+  Logger.debug('Error during bootstrap:', error);
 });

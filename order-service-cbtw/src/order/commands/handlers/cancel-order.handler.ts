@@ -18,18 +18,18 @@ export class CancelOrderCommandHandler implements ICommandHandler<CancelOrderCom
       where: { id: orderId },
     });
     if (!order) {
-      Logger.error(`Order is not exist with orderId: ${orderId}`);
+      Logger.debug(`Order is not exist with orderId: ${orderId}`);
       return false;
     }
 
     if (order.status !== OrderStatus.Pending) {
-      Logger.error(
+      Logger.debug(
         `Order cannot cancel because current status is ${order.status}`,
       );
       return false;
     }
 
-    Logger.error(`Order cancelled event received for order ID: ${orderId}`);
+    Logger.debug(`Order cancelled event received for order ID: ${orderId}`);
     return !!(await this.orderRepository.save({
       ...order,
       status: OrderStatus.Cancel,

@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,9 +21,11 @@ export class CreateOrderCommandHandler implements ICommandHandler<CreateOrderCom
 
   async execute({ placeOrderDto }: CreateOrderCommand): Promise<any> {
     try {
+      const { requestId, ...orderData } = placeOrderDto as any;
+
       const orderEntity = await this.orderRepository.save(
         {
-          ...placeOrderDto,
+          ...orderData,
           status: OrderStatus.Pending,
         },
         {
@@ -27,7 +33,7 @@ export class CreateOrderCommandHandler implements ICommandHandler<CreateOrderCom
         },
       );
       await this.orderItemRepository.save(
-        placeOrderDto.items.map((orderItem) => ({
+        orderData.items.map((orderItem) => ({
           ...orderItem,
           order: {
             id: orderEntity.id,
@@ -38,15 +44,16 @@ export class CreateOrderCommandHandler implements ICommandHandler<CreateOrderCom
         },
       );
 
-      const totalAmount = placeOrderDto.items.reduce(
+      const totalAmount = orderData.items.reduce(
         (prev, current) => prev + current.price,
         0,
       );
 
       return {
+        requestId,
         orderId: orderEntity.id,
         customerId: orderEntity.customerId,
-        products: placeOrderDto.items,
+        products: orderData.items,
         totalAmount,
       };
     } catch (error: any) {

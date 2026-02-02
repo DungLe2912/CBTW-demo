@@ -19,7 +19,7 @@ export class UpdateInventoryCommandHandler implements ICommandHandler<UpdateInve
       where: { id: In(ids) },
     });
     if (productEntities.length !== products.length) {
-      Logger.error('At least one of product in payload does not match');
+      Logger.debug('At least one of product in payload does not match');
       return false;
     }
 
@@ -27,7 +27,7 @@ export class UpdateInventoryCommandHandler implements ICommandHandler<UpdateInve
       (product, index) => product.stockQuantity - products[index].quantity >= 0,
     );
     if (!canReserve) {
-      Logger.error('Cannot reserveStock');
+      Logger.debug('Cannot reserveStock');
       return false;
     }
 

@@ -1,10 +1,5 @@
 import { Body, Controller } from '@nestjs/common';
-import {
-  EventPattern,
-  MessagePattern,
-  Payload,
-  Transport,
-} from '@nestjs/microservices';
+import { EventPattern, Payload, Transport } from '@nestjs/microservices';
 import { PlaceOrderDto } from './order.interface';
 import { OrderService } from './order.service';
 
@@ -12,9 +7,11 @@ import { OrderService } from './order.service';
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
-  @MessagePattern({ cmd: 'createOrder' }, Transport.RMQ)
-  async createOrder(@Payload() createOrderDto: PlaceOrderDto): Promise<any> {
-    return await this.orderService.createOrder(createOrderDto);
+  @EventPattern({ cmd: 'orderCreateRequested' }, Transport.RMQ)
+  async handleOrderCreateRequested(
+    @Payload() createOrderDto: PlaceOrderDto,
+  ): Promise<void> {
+    await this.orderService.handleOrderCreateRequested(createOrderDto);
   }
 
   @EventPattern({ cmd: 'orderConfirmed' }, Transport.RMQ)

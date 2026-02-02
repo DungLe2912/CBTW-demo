@@ -19,7 +19,7 @@ export class ReserveStockCommandHandler implements ICommandHandler<ReserveStockC
       where: { id: In(ids) },
     });
     if (productEntities.length !== products.length) {
-      Logger.error('At least one of product in payload does not match');
+      Logger.debug('At least one of product in payload does not match');
       return false;
     }
 
@@ -30,7 +30,7 @@ export class ReserveStockCommandHandler implements ICommandHandler<ReserveStockC
     if (isReserveStock) {
       Logger.log('Can reserveStock');
     } else {
-      Logger.error('Cannot reserveStock');
+      Logger.debug('Cannot reserveStock');
     }
 
     return isReserveStock;

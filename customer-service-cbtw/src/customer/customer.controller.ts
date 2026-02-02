@@ -29,14 +29,38 @@ export class CustomerController {
 
   @MessagePattern({ cmd: 'processPayment' }, Transport.RMQ)
   async processPayment(
-    @Payload() payload: { customerId: number; totalAmount: number },
+    @Payload()
+    payload: {
+      requestId?: string;
+      customerId: number;
+      totalAmount: number;
+    },
   ): Promise<boolean> {
     return await this.customerService.processPayment(payload);
   }
 
+  @EventPattern({ cmd: 'processPaymentRequested' }, Transport.RMQ)
+  async handleProcessPaymentRequested(
+    @Payload()
+    payload: {
+      requestId?: string;
+      orderId: number;
+      customerId: number;
+      products: unknown;
+      totalAmount: number;
+    },
+  ): Promise<void> {
+    await this.customerService.handleProcessPaymentRequested(payload);
+  }
+
   @EventPattern({ cmd: 'refundPayment' }, Transport.RMQ)
   async compensateProcessPayment(
-    @Payload() payload: { customerId: number; totalAmount: number },
+    @Payload()
+    payload: {
+      requestId?: string;
+      customerId: number;
+      totalAmount: number;
+    },
   ): Promise<boolean> {
     return await this.customerService.compensateProcessPayment(payload);
   }

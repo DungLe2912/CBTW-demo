@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { SagaCoordinatorModule } from './saga-coordinator/saga-coordinator.module';
 import { DevtoolsModule } from '@nestjs/devtools-integration';
+import { SagaCoordinatorModule } from './saga-coordinator/saga-coordinator.module';
 
 @Module({
   imports: [

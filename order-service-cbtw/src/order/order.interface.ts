@@ -1,6 +1,10 @@
-import { IsNotEmpty, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class PlaceOrderDto {
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
   @IsNotEmpty()
   customerId: number;
 
@@ -20,4 +24,12 @@ export class OrderItemDto {
   @IsNotEmpty()
   @IsNumber()
   price: number;
+}
+
+export interface ICreateOrderEvent {
+  requestId: string;
+  orderId: number;
+  customerId: number;
+  products: OrderItemDto[];
+  totalAmount: number;
 }

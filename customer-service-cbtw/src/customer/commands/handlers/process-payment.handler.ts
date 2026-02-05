@@ -16,22 +16,22 @@ export class ProcessPaymentCommandHandler implements ICommandHandler<ProcessPaym
     customerId,
     totalAmount,
   }: ProcessPaymentCommand): Promise<boolean> {
-    const customer = await this.customerRepository.findOne({
-      where: { id: customerId },
-    });
-    if (!customer) {
-      Logger.debug('Customer not found');
-      return false;
-    }
-    if (customer.balance < totalAmount) {
+    Logger.log('Start process payment');
+    const result = await this.customerRepository
+      .createQueryBuilder()
+      .update(CustomerEntity)
+      .set({
+        balance: () => '"balance" - :amount',
+      })
+      .where('id = :id', { id: customerId })
+      .andWhere('"balance" >= :amount', { amount: totalAmount })
+      .execute();
+
+    if (!result.affected) {
       Logger.debug('Cannot process payment');
       return false;
     }
 
-    Logger.log('Start process payment');
-    return !!(await this.customerRepository.save({
-      ...customer,
-      balance: customer.balance - totalAmount,
-    }));
+    return true;
   }
 }

@@ -17,20 +17,18 @@ export class CompensateProcessPaymentCommandHandler implements ICommandHandler<C
     customerId,
     totalAmount,
   }: CompensateProcessPaymentCommand): Promise<boolean> {
-    const customer = await this.customerRepository.findOne({
-      where: { id: customerId },
-      select: ['id', 'balance'],
-    });
+    Logger.debug('Start compensation process payment');
+    const result = await this.customerRepository.increment(
+      { id: customerId },
+      'balance',
+      totalAmount,
+    );
 
-    if (!customer) {
+    if (!result.affected) {
       Logger.debug(`Customer not found for id: ${customerId}`);
       return false;
     }
 
-    Logger.debug('Start compensation process payment');
-    return !!(await this.customerRepository.save({
-      id: customer.id,
-      balance: customer.balance + totalAmount,
-    }));
+    return true;
   }
 }

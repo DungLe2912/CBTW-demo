@@ -23,9 +23,13 @@ export class ReserveStockCommandHandler implements ICommandHandler<ReserveStockC
       return false;
     }
 
-    const isReserveStock = productEntities.every(
-      (product, index) => product.stockQuantity - products[index].quantity >= 0,
+    const productMap = new Map(
+      productEntities.map((product) => [product.id, product]),
     );
+    const isReserveStock = products.every((item) => {
+      const product = productMap.get(item.productId);
+      return !!product && product.stockQuantity - item.quantity >= 0;
+    });
 
     if (isReserveStock) {
       Logger.log('Can reserveStock');
